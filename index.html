@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ZenWealth | 프리미엄 투자 기록부</title>
+    <meta name="description" content="나만의 투자 기록, 입출금 노이즈 없는 순수 수익률 분석">
+    
+    <!-- Mobile App Settings -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ZenWealth">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0a0a0a">
+
+    <!-- Web App Manifest (Data URI) -->
+    <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIlplbldlYWx0aCIsCiAgInNob3J0X25hbWUiIjogIlplbldlYWx0aCIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMGEwYTBhIiwKICAidGhlbWVfY29sb3IiOiAiIzBhMGEwYSIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImljb24ucG5nIiwKICAgICAgInNpemVzIjogIjEwMjR4MTAyNCIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIsCiAgICAgICJwdXJwb3NlIjogImFueSBtYX莱JsZSIKICAgIH0KICBdCn0=">
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-color: hsl(240, 10%, 4%);
+            --card-bg: hsla(240, 10%, 12%, 0.7);
+            --card-border: hsla(240, 10%, 20%, 0.5);
+            --text-primary: hsl(0, 0%, 98%);
+            --text-secondary: hsl(240, 5%, 65%);
+            --accent-color: hsl(210, 100%, 60%);
+            --accent-gradient: linear-gradient(135deg, hsl(210, 100%, 60%), hsl(280, 100%, 60%));
+            --success: hsl(150, 100%, 45%);
+            --danger: hsl(0, 100%, 65%);
+            --glass-blur: blur(12px);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            
+            /* 네비바 높이 정의: 기본 65px + 아이폰 하단 인셋 */
+            --nav-height: calc(65px + env(safe-area-inset-bottom));
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-primary); 
+            line-height: 1.5; 
+            overflow: hidden; 
+            height: 100vh;
+            height: 100dvh; /* 최신 브라우저 대응 */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container { 
+            flex: 1;
+            width: 100%;
+            max-width: 500px; 
+            margin: 0 auto; 
+            padding: calc(20px + env(safe-area-inset-top)) 20px calc(var(--nav-height) + 20px) 20px; 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* View Switching */
+        .view-section { display: none; animation: fadeIn 0.4s ease; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Header */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+        .total-assets-label { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 4px; }
+        .total-assets-value { font-size: 2.2rem; font-weight: 700; letter-spacing: -0.03em; }
+
+        /* Controls */
+        .currency-toggle, .chart-controls-group { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px; padding: 4px; display: flex; gap: 4px; backdrop-filter: var(--glass-blur); }
+        .toggle-btn { padding: 6px 12px; border-radius: 16px; border: none; background: transparent; color: var(--text-secondary); font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: var(--transition); }
+        .toggle-btn.active { background: var(--accent-color); color: white; box-shadow: 0 4px 12px hsla(210, 100%, 60%, 0.3); }
+
+        /* Cards */
+        .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 24px; padding: 20px; margin-bottom: 24px; backdrop-filter: var(--glass-blur); }
+        .chart-options { display: flex; justify-content: space-between; margin-bottom: 16px; align-items: center; }
+
+        /* Filters */
+        .filters { 
+            display: flex; 
+            gap: 8px; 
+            margin-bottom: 28px; 
+            overflow-x: auto; 
+            padding: 4px 2px; 
+            scrollbar-width: none; 
+            -ms-overflow-style: none;
+            -webkit-overflow-scrolling: touch;
+        }
+        .filters::-webkit-scrollbar { display: none; }
+        .filter-chip {
+            padding: 8px 18px; 
+            border-radius: 22px; 
+            background: var(--card-bg); 
+            border: 1px solid var(--card-border); 
+            color: var(--text-secondary); 
+            font-size: 0.8rem; 
+            white-space: nowrap; 
+            cursor: pointer; 
+            transition: var(--transition);
+            backdrop-filter: var(--glass-blur);
+        }
+        .filter-chip.active { 
+            background: var(--text-primary); 
+            color: var(--bg-color); 
+            border-color: var(--text-primary); 
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(255,255,255,0.1);
+        }
+
+        /* Account Cards */
+        .account-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 22px; padding: 18px; display: flex; justify-content: space-between; align-items: center; transition: var(--transition); cursor: pointer; margin-bottom: 12px; }
+        .account-card:active { transform: scale(0.97); }
+        .account-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.08); color: var(--text-secondary); margin-right: 4px; }
+        .up { color: var(--success); } .down { color: var(--danger); }
+
+        /* Bottom Nav - Fix for Mobile Web App */
+        .bottom-nav { 
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: var(--nav-height); 
+            background: hsla(240, 10%, 4%, 0.95); 
+            backdrop-filter: blur(24px); 
+            border-top: 1px solid var(--card-border); 
+            display: flex; 
+            justify-content: space-around; 
+            align-items: flex-start; /* 아이콘을 위쪽에 정렬하고 패딩으로 조절 */
+            z-index: 100; 
+            padding-top: 12px;
+            padding-bottom: env(safe-area-inset-bottom); 
+            flex-shrink: 0;
+        }
+        .nav-item { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            color: var(--text-secondary); 
+            text-decoration: none; 
+            gap: 4px; 
+            font-size: 0.7rem; 
+            transition: var(--transition); 
+            border: none; 
+            background: none; 
+            cursor: pointer;
+            width: 20%;
+        }
+        .nav-item.active { color: var(--accent-color); }
+        
+        .fab { 
+            width: 56px; 
+            height: 56px; 
+            border-radius: 28px; 
+            background: var(--accent-gradient); 
+            border: none; 
+            color: white; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            box-shadow: 0 8px 24px hsla(210, 100%, 60%, 0.4); 
+            margin-top: -36px; /* 살짝 위로 띄움 */
+            cursor: pointer; 
+            flex-shrink: 0;
+        }
+
+        /* Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
+        .modal-content { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 32px; width: 100%; max-width: 420px; padding: 28px; animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.9) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; }
+        .form-control { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid var(--card-border); border-radius: 16px; padding: 14px; color: white; outline: none; font-family: inherit; font-size: 1rem; }
+        .btn-primary { width: 100%; padding: 16px; border-radius: 16px; border: none; background: var(--accent-gradient); color: white; font-weight: 700; font-size: 1rem; cursor: pointer; }
+        .btn-secondary { width: 100%; padding: 16px; border-radius: 16px; border: 1px solid var(--card-border); background: transparent; color: white; font-weight: 600; cursor: pointer; }
+        
+        .log-item { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid var(--card-border); }
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Dashboard -->
+        <section id="view-dashboard" class="view-section active">
+            <header class="header">
+                <div>
+                    <p class="total-assets-label">순자산</p>
+                    <div class="total-assets-value" id="total-assets-display">₩ 0</div>
+                    <div id="total-roi-display" style="font-size: 1rem; font-weight: 600; margin-top: 4px;">+ ₩ 0 (0.00%)</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">총 자산: <span id="gross-assets-display">₩ 0</span> | 대출: <span id="liability-assets-display" style="color: var(--danger);">₩ 0</span></div>
+                </div>
+                <div class="currency-toggle" style="align-self: flex-start;">
+                    <button class="toggle-btn active" onclick="setCurrency('KRW')">KRW</button>
+                    <button class="toggle-btn" onclick="setCurrency('USD')">USD</button>
+                </div>
+            </header>
+
+            <div class="card">
+                <div class="chart-options">
+                    <div class="chart-controls-group">
+                        <button class="toggle-btn" onclick="setChartPeriod('day', this)">일별</button>
+                        <button class="toggle-btn active" onclick="setChartPeriod('month', this)">월별</button>
+                        <button class="toggle-btn" onclick="setChartPeriod('year', this)">연별</button>
+                    </div>
+                    <select id="index-selector" onchange="setChartIndex(this.value)" style="background: var(--card-bg); color: white; border: 1px solid var(--card-border); border-radius: 20px; padding: 6px 12px; font-size: 0.75rem; outline: none;">
+                        <option value="S&P 500">S&P 500</option>
+                        <option value="KOSPI">KOSPI</option>
+                        <option value="NASDAQ">NASDAQ</option>
+                    </select>
+                </div>
+                <div style="height: 220px;"><canvas id="mainChart"></canvas></div>
+            </div>
+
+            <div class="filters" id="consolidated-filters">
+                <div class="filter-chip active" data-val="all" onclick="toggleFilter('all', this)">전체</div>
+                <div class="filter-chip" data-val="국내" onclick="toggleFilter('국내', this)">국내</div>
+                <div class="filter-chip" data-val="해외" onclick="toggleFilter('해외', this)">해외</div>
+                <div class="filter-chip" data-val="대출" onclick="toggleFilter('대출', this)">대출</div>
+                <div class="filter-chip" data-val="공격형" onclick="toggleFilter('공격형', this)">공격형</div>
+                <div class="filter-chip" data-val="안정형" onclick="toggleFilter('안정형', this)">안정형</div>
+            </div>
+
+            <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
+                <h3 style="font-size: 1.2rem;">내 계좌</h3>
+                <button onclick="openModal('addAccount')" style="color:var(--accent-color); background:none; border:none; font-weight:600; font-size: 0.9rem;">+ 계좌 추가</button>
+            </div>
+            <div id="account-list"></div>
+        </section>
+
+        <!-- Account Detail -->
+        <section id="view-account-detail" class="view-section">
+            <header style="display:flex; align-items:center; margin-bottom: 24px;">
+                <button onclick="switchView('dashboard')" style="background:none; border:none; color:var(--text-secondary); display:flex; align-items:center; cursor:pointer;"><i data-lucide="chevron-left"></i><span style="margin-left:4px;">뒤로</span></button>
+                <div style="flex:1; text-align:center; font-weight:600; font-size:1.1rem; padding-right:60px;">계좌 상세</div>
+            </header>
+            
+            <div class="card" style="text-align:center; padding: 32px 20px;">
+                <div id="detail-tags" style="margin-bottom:12px;"></div>
+                <h2 id="detail-name" style="margin-bottom: 12px; font-size: 1.5rem;">계좌명</h2>
+                <div id="detail-balance" style="font-size: 2.5rem; font-weight: 700; margin-bottom: 8px;">₩ 0</div>
+                <div id="detail-roi" style="font-size: 1rem; font-weight: 600;">+ 0 (0.00%)</div>
+            </div>
+
+            <div style="display:flex; gap:12px; margin-bottom: 24px;">
+                <button class="btn-primary" style="flex:1; padding:12px; font-size:0.9rem;" onclick="openQuickLogDetail('deposit')">입금 (+)</button>
+                <button class="btn-secondary" style="flex:1; padding:12px; font-size:0.9rem; background:rgba(255,255,255,0.05);" onclick="openQuickLogDetail('withdrawal')">출금 (-)</button>
+                <button class="btn-secondary" style="flex:1; padding:12px; font-size:0.9rem; border-color:var(--text-secondary);" onclick="openModal('editAccountBalance')">잔액 수정</button>
+            </div>
+
+            <h3 style="margin-bottom: 16px; font-size: 1.1rem;">이 계좌의 거래 내역</h3>
+            <div class="card" style="padding: 12px 20px;">
+                <div id="detail-log-list"></div>
+            </div>
+
+            <button class="btn-secondary" style="width:100%; border:none; color:var(--danger); padding:16px; margin-top:12px;" onclick="if(confirm('정말 삭제하시겠습니까?')) deleteAccount(state.currentDetailId)">이 계좌 삭제</button>
+        </section>
+
+        <!-- Portfolio -->
+        <section id="view-portfolio" class="view-section">
+            <h2 style="margin-bottom: 24px;">자산 포트폴리오</h2>
+            <div class="card">
+                <h4 style="margin-bottom: 20px; color: var(--text-secondary); font-weight: 500;">지역별 자산 비중</h4>
+                <div style="height: 240px;"><canvas id="pieChart"></canvas></div>
+            </div>
+            <div id="portfolio-stats"></div>
+        </section>
+
+        <!-- History -->
+        <section id="view-history" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2>기록 관리</h2>
+                <div class="chart-controls-group" style="scale: 0.9;">
+                    <button class="toggle-btn active" id="btn-hist-logs" onclick="setHistoryMode('logs')">거래 내역</button>
+                    <button class="toggle-btn" id="btn-hist-snapshots" onclick="setHistoryMode('snapshots')">자산 추이</button>
+                </div>
+            </div>
+            
+            <div id="history-logs-container">
+                <div class="card">
+                    <div id="log-list"></div>
+                </div>
+            </div>
+
+            <div id="history-snapshots-container" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary);">일별 총 자산 기록 (차트 데이터)</p>
+                    <button onclick="openModal('addSnapshot')" style="color:var(--accent-color); background:none; border:none; font-weight:600; font-size: 0.8rem;">+ 과거 데이터 추가</button>
+                </div>
+                <div class="card">
+                    <div id="snapshot-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings -->
+        <section id="view-settings" class="view-section">
+            <h2 style="margin-bottom: 24px;">설정</h2>
+            <div class="card">
+                <p style="font-weight: 600; margin-bottom: 12px;">데이터 관리</p>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <button class="btn-secondary" style="color: var(--danger); border-color: var(--danger);" onclick="resetData()">전체 데이터 초기화</button>
+                </div>
+            </div>
+            <div class="card">
+                <p style="font-weight: 600; margin-bottom: 8px;">앱 정보</p>
+                <p style="font-size: 0.85rem; color: var(--text-secondary);">ZenWealth v1.6.0</p>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Premium Private Investment Journal</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div id="modal-addAccount" class="modal-content" style="display:none;">
+            <h3 style="margin-bottom: 24px;">새 계좌 등록</h3>
+            <div class="form-group"><label>계좌명</label><input type="text" id="add-acc-name" class="form-control" placeholder="예: 키움 테슬라 몰빵"></div>
+            <div class="form-group"><label>초기 자산액</label><input type="number" id="add-acc-balance" class="form-control" placeholder="0"></div>
+            <div class="form-group"><label>투자 지역 / 유형</label><select id="add-acc-type" class="form-control"><option value="국내">국내 (KR)</option><option value="해외">해외 (Global)</option><option value="대출">대출 (Loan)</option></select></div>
+            <div class="form-group"><label>투자 성향</label><select id="add-acc-strategy" class="form-control"><option value="공격형">공격형 (Growth)</option><option value="안정형">안정형 (Value)</option></select></div>
+            <button class="btn-primary" onclick="addAccount()">등록 완료</button>
+        </div>
+
+        <div id="modal-editAccountBalance" class="modal-content" style="display:none;">
+            <h3 style="margin-bottom: 6px;">잔액 직접 수정</h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 24px;">수익률 계산을 위해 기존 투자 원금은 유지되고 현재 잔액(평가 금액)만 변경됩니다.</p>
+            <div class="form-group"><label>현재 잔액 (KRW)</label><input type="number" id="edit-acc-balance-input" class="form-control"></div>
+            <button class="btn-primary" onclick="saveAccountBalanceEdit()">변경사항 저장</button>
+        </div>
+
+        <div id="modal-addLog" class="modal-content" style="display:none;">
+            <h3 style="margin-bottom: 24px;">빠른 입출금 기록</h3>
+            <div class="form-group"><label>날짜</label><input type="date" id="log-date" class="form-control"></div>
+            <div class="form-group"><label>대상 계좌</label><select id="log-acc-select" class="form-control"></select></div>
+            <div class="form-group"><label>거래 유형</label><select id="log-type" class="form-control"><option value="deposit">입금 (+)</option><option value="withdrawal">출금 (-)</option></select></div>
+            <div class="form-group"><label>거래 금액</label><input type="number" id="log-amount" class="form-control" placeholder="0"></div>
+            <button class="btn-primary" onclick="submitQuickLog()">기록 추가</button>
+        </div>
+
+        <div id="modal-addSnapshot" class="modal-content" style="display:none;">
+            <h3 style="margin-bottom: 6px;">과거 자산 기록 추가</h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 24px;">해당 날짜의 '순자산(총자산-대출)' 합계를 직접 입력합니다. 과거 차트 복구용입니다.</p>
+            <div class="form-group"><label>날짜</label><input type="date" id="snapshot-date-input" class="form-control"></div>
+            <div class="form-group"><label>해당 시점 총 순자산 (KRW)</label><input type="number" id="snapshot-balance-input" class="form-control" placeholder="0"></div>
+            <button class="btn-primary" onclick="addManualSnapshot()">기록 저장</button>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="switchView('dashboard', this)"><i data-lucide="layout-dashboard"></i><span>홈</span></button>
+        <button class="nav-item" onclick="switchView('portfolio', this)"><i data-lucide="pie-chart"></i><span>분석</span></button>
+        <div style="width: 60px; display: flex; justify-content: center;">
+            <button class="fab" onclick="openModal('addLog')"><i data-lucide="plus" size="32"></i></button>
+        </div>
+        <button class="nav-item" onclick="switchView('history', this)"><i data-lucide="history"></i><span>내역</span></button>
+        <button class="nav-item" onclick="switchView('settings', this)"><i data-lucide="settings"></i><span>설정</span></button>
+    </nav>
+
+    <script>
+        lucide.createIcons();
+
+        // State & Data Logic
+        let state = {
+            currency: 'KRW',
+            filters: new Set(['all']),
+            currentEditId: null,
+            currentDetailId: null,
+            chartPeriod: 'month',
+            chartIndex: 'S&P 500',
+            accounts: JSON.parse(localStorage.getItem('agents_accounts')) || [],
+            logs: JSON.parse(localStorage.getItem('agents_logs')) || [],
+            snapshots: JSON.parse(localStorage.getItem('agents_snapshots')) || [],
+            viewingDashboard: true
+        };
+
+        const symbols = { 'S&P 500': '^GSPC', 'KOSPI': '^KS11', 'NASDAQ': '^IXIC' };
+        const marketColors = { 'S&P 500': '#fbbf24', 'KOSPI': '#10b981', 'NASDAQ': '#a78bfa' };
+
+        function getISODate(date) {
+            const d = date ? new Date(date) : new Date();
+            return new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        }
+
+        async function fetchMarketData(indexName) {
+            const symbol = symbols[indexName];
+            let range = '6mo';
+            let interval = '1mo';
+            if(state.chartPeriod === 'day') { range = '1mo'; interval = '1d'; }
+            if(state.chartPeriod === 'month') { range = '1y'; interval = '1mo'; }
+            if(state.chartPeriod === 'year') { range = '5y'; interval = '3mo'; }
+
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${interval}`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+            try {
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                const quotes = data.chart.result[0].indicators.adjclose[0].adjclose;
+                const timestamps = data.chart.result[0].timestamp;
+                
+                let validQuotes = [];
+                let validTimestamps = [];
+                for(let i=0; i<quotes.length; i++) {
+                    if(quotes[i] !== null) {
+                        validQuotes.push(quotes[i]);
+                        validTimestamps.push(timestamps[i]);
+                    }
+                }
+
+                const chartData = validQuotes;
+                const labels = validTimestamps.map(t => {
+                    const date = new Date(t * 1000);
+                    if(state.chartPeriod === 'year') return date.getFullYear().toString();
+                    if(state.chartPeriod === 'month') return (date.getMonth() + 1) + '월';
+                    return (date.getMonth() + 1) + '/' + date.getDate();
+                });
+                return { labels, chartData };
+            } catch (error) { 
+                console.error('Market fetch err:', error); 
+                return { labels: [], chartData: [] }; 
+            }
+        }
+
+        let mainChart, pieChart;
+        function initCharts() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            mainChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['조회 중...'],
+                    datasets: [
+                        { label: '내 자산액', data: [], borderColor: '#3b82f6', tension: 0.4, fill: true, backgroundColor: 'rgba(59,130,246,0.1)', borderWidth: 3, pointRadius: 4, pointBackgroundColor: '#3b82f6' },
+                        { label: '지수 추이', data: [], borderColor: '#fbbf24', borderDash: [6, 4], tension: 0.4, borderWidth: 2, pointRadius: 0 }
+                    ]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } }, 
+                    scales: { 
+                        x: { display: true, grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 10 } } }, 
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { display: false, color: 'rgba(255,255,255,0.3)', font: { size: 10 }, callback: v => formatCurrency(v) } } 
+                    } 
+                }
+            });
+
+            const pieCtx = document.getElementById('pieChart').getContext('2d');
+            pieChart = new Chart(pieCtx, {
+                type: 'doughnut',
+                data: { labels: ['국내', '해외'], datasets: [{ data: [1, 1], backgroundColor: ['#3b82f6', '#8b5cf6'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#888', usePointStyle: true, padding: 20 } } }, cutout: '70%' }
+            });
+        }
+
+        function render() {
+            const filtered = state.accounts.filter(a => {
+                if (state.filters.has('all')) return true;
+                return Array.from(state.filters).every(tag => a.type === tag || a.strategy === tag);
+            });
+            let totalAsset = 0;
+            let totalLiability = 0;
+            let totalPrincipal = 0;
+            filtered.forEach(acc => {
+                if(acc.type === '대출') totalLiability += acc.balance;
+                else {
+                    totalAsset += acc.balance;
+                    totalPrincipal += acc.principal || 0;
+                }
+            });
+            let netBalance = totalAsset - totalLiability;
+            let profit = totalAsset - totalPrincipal;
+            let roi = totalPrincipal > 0 ? (profit / totalPrincipal * 100).toFixed(2) : '0.00';
+
+            document.getElementById('total-assets-display').innerText = formatCurrency(netBalance);
+            const roiEl = document.getElementById('total-roi-display');
+            if(roiEl) {
+                const isPos = profit >= 0;
+                roiEl.innerText = `${isPos ? '+' : ''} ${formatCurrency(profit)} (${isPos ? '+' : ''}${roi}%)`;
+                roiEl.style.color = isPos ? 'var(--success)' : 'var(--danger)';
+            }
+            const grossEl = document.getElementById('gross-assets-display');
+            const liabEl = document.getElementById('liability-assets-display');
+            if(grossEl) grossEl.innerText = formatCurrency(totalAsset);
+            if(liabEl) liabEl.innerText = formatCurrency(totalLiability);
+            
+            const list = document.getElementById('account-list');
+            list.innerHTML = filtered.length ? '' : '<div class="empty-state">조건에 맞는 계좌가 없습니다.</div>';
+            filtered.forEach(acc => {
+                let div = document.createElement('div');
+                div.className = 'account-card';
+                div.onclick = () => openAccountDetail(acc.id);
+                
+                if (acc.type === '대출') {
+                    div.innerHTML = `<div><h4 style="margin-bottom:4px;">${acc.name}</h4><span class="account-tag">${acc.type}</span><span class="account-tag">${acc.strategy}</span></div>
+                                     <div style="text-align:right;"><div style="font-weight:700; font-size:1.1rem; color:var(--danger);">${formatCurrency(acc.balance)}</div></div>`;
+                } else {
+                    const accProfit = acc.balance - (acc.principal || 0);
+                    const accRoi = (acc.principal || 0) > 0 ? (accProfit / acc.principal * 100).toFixed(2) : '0.00';
+                    const isPos = accProfit >= 0;
+                    const roiColor = isPos ? 'var(--success)' : 'var(--danger)';
+                    const roiStr = `${isPos ? '+' : ''}${accRoi}%`;
+                    div.innerHTML = `<div><h4 style="margin-bottom:4px;">${acc.name}</h4><span class="account-tag">${acc.type}</span><span class="account-tag">${acc.strategy}</span></div>
+                                     <div style="text-align:right;">
+                                     <div style="font-weight:700; font-size:1.1rem;">${formatCurrency(acc.balance)}</div>
+                                     <div style="font-size:0.8rem; font-weight:600; color:${roiColor};">${roiStr}</div>
+                                     </div>`;
+                }
+                list.appendChild(div);
+            });
+
+            if (state.snapshots.length >= 1) {
+                state.snapshots.sort((a, b) => a.date.localeCompare(b.date));
+                let grouped = {};
+                state.snapshots.forEach(s => {
+                    const dateObj = new Date(s.date);
+                    if(isNaN(dateObj.getTime())) return;
+                    let key = s.date;
+                    if(state.chartPeriod === 'month') key = s.date.substring(0, 7);
+                    else if(state.chartPeriod === 'year') key = s.date.substring(0, 4);
+                    grouped[key] = s.balance;
+                });
+                let keys = Object.keys(grouped).sort();
+                let displayKeys = keys.slice(-30);
+                mainChart.data.labels = displayKeys.map(k => {
+                    if(state.chartPeriod === 'day') return k.substring(5).replace('-', '/');
+                    if(state.chartPeriod === 'month') return k.substring(5) + '월';
+                    return k + '년';
+                });
+                mainChart.data.datasets[0].data = displayKeys.map(k => grouped[k]);
+                mainChart.update();
+            }
+
+            const histList = document.getElementById('log-list');
+            histList.innerHTML = state.logs.length ? '' : '<div class="empty-state">최근 거래 내역이 없습니다.</div>';
+            state.logs.slice().reverse().forEach((log, idx) => {
+                const realIdx = state.logs.length - 1 - idx;
+                const acc = state.accounts.find(a => a.id === log.accId);
+                const div = document.createElement('div');
+                div.className = 'log-item';
+                div.innerHTML = `<div style="flex:1;"><div style="font-weight:600; font-size:0.95rem;">${acc ? acc.name : '삭제된 계좌'}</div><div style="font-size:0.75rem; color:var(--text-secondary);">${log.date}</div></div>
+                                 <div style="text-align:right; display:flex; align-items:center; gap:12px;">
+                                    <div class="${log.type==='deposit'?'up':'down'}" style="font-weight:700; font-size:1.05rem;">${log.type==='deposit'?'+':'-'}${formatCurrency(log.amount)}</div>
+                                    <button onclick="deleteLog(${realIdx})" style="background:none; border:none; color:var(--text-secondary); opacity:0.5; padding:4px;"><i data-lucide="trash-2" size="16"></i></button>
+                                 </div>`;
+                histList.appendChild(div);
+            });
+
+            const snapList = document.getElementById('snapshot-list');
+            if(snapList) {
+                snapList.innerHTML = state.snapshots.length ? '' : '<div class="empty-state">저장된 자산 추이 데이터가 없습니다.</div>';
+                state.snapshots.slice().reverse().forEach((snap, idx) => {
+                    const realIdx = state.snapshots.length - 1 - idx;
+                    const div = document.createElement('div');
+                    div.className = 'log-item';
+                    div.innerHTML = `<div style="flex:1;"><div style="font-weight:600; font-size:0.95rem;">${snap.date} 자산액</div><div style="font-size:0.75rem; color:var(--text-secondary);">스냅샷 기록</div></div>
+                                     <div style="text-align:right; display:flex; align-items:center; gap:12px;">
+                                        <div style="font-weight:700; font-size:1.05rem;">${formatCurrency(snap.balance)}</div>
+                                        <button onclick="deleteSnapshot(${realIdx})" style="background:none; border:none; color:var(--text-secondary); opacity:0.5; padding:4px;"><i data-lucide="trash-2" size="16"></i></button>
+                                     </div>`;
+                    snapList.appendChild(div);
+                });
+            }
+
+            lucide.createIcons();
+
+            const typeSums = state.accounts.reduce((obj, a) => { 
+                if(a.type !== '대출') obj[a.type] = (obj[a.type] || 0) + a.balance; 
+                return obj; 
+            }, {});
+            pieChart.data.labels = Object.keys(typeSums);
+            pieChart.data.datasets[0].data = Object.values(typeSums);
+            pieChart.update();
+
+            renderDetailView();
+
+            localStorage.setItem('agents_accounts', JSON.stringify(state.accounts));
+            localStorage.setItem('agents_logs', JSON.stringify(state.logs));
+            localStorage.setItem('agents_snapshots', JSON.stringify(state.snapshots));
+            document.getElementById('log-acc-select').innerHTML = state.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+
+            if(state.viewingDashboard) syncChartIndex();
+        }
+
+        async function syncChartIndex() {
+            if(!mainChart || mainChart.data.labels.length === 0) return;
+            const liveData = await fetchMarketData(state.chartIndex);
+            if (liveData && liveData.chartData.length > 0) {
+                const targetLen = mainChart.data.labels.length;
+                const slicedMarket = liveData.chartData.slice(-targetLen);
+                const firstUserVal = mainChart.data.datasets[0].data[0] || 1000000;
+                const firstMarketVal = slicedMarket[0] || 1;
+                
+                mainChart.data.datasets[1].label = state.chartIndex;
+                mainChart.data.datasets[1].borderColor = marketColors[state.chartIndex];
+                mainChart.data.datasets[1].data = slicedMarket.map(v => (v / firstMarketVal * firstUserVal));
+                mainChart.update('none');
+            }
+        }
+
+        function renderDetailView() {
+            if(!state.currentDetailId) return;
+            const acc = state.accounts.find(a => a.id === state.currentDetailId);
+            if(!acc) return;
+            
+            document.getElementById('detail-name').innerText = acc.name;
+            document.getElementById('detail-tags').innerHTML = `<span class="account-tag">${acc.type}</span><span class="account-tag">${acc.strategy}</span>`;
+            document.getElementById('detail-balance').innerText = formatCurrency(acc.balance);
+            
+            if(acc.type === '대출') {
+                document.getElementById('detail-roi').innerText = '';
+            } else {
+                const profit = acc.balance - (acc.principal || 0);
+                const roi = (acc.principal || 0) > 0 ? (profit / acc.principal * 100).toFixed(2) : '0.00';
+                const isPos = profit >= 0;
+                const roiEl = document.getElementById('detail-roi');
+                roiEl.innerText = `${isPos ? '+' : ''} ${formatCurrency(profit)} (${isPos ? '+' : ''}${roi}%)`;
+                roiEl.style.color = isPos ? 'var(--success)' : 'var(--danger)';
+            }
+
+            const logList = document.getElementById('detail-log-list');
+            const accLogs = state.logs.filter(l => l.accId === acc.id).slice().reverse();
+            logList.innerHTML = accLogs.length ? '' : '<div class="empty-state">기록이 없습니다.</div>';
+            accLogs.forEach(log => {
+                const div = document.createElement('div');
+                div.className = 'log-item';
+                div.innerHTML = `<div><div style="font-weight:600; font-size:0.95rem;">${log.type==='deposit'?'입금 (+)':'출금 (-)'}</div><div style="font-size:0.75rem; color:var(--text-secondary);">${log.date}</div></div>
+                                 <div class="${log.type==='deposit'?'up':'down'}" style="font-weight:700; font-size:1.05rem;">${log.type==='deposit'?'+':'-'}${formatCurrency(log.amount)}</div>`;
+                logList.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        function openAccountDetail(id) {
+            state.currentDetailId = id;
+            switchView('account-detail');
+        }
+
+        function formatCurrency(v) {
+            return state.currency === 'KRW' ? '₩' + Math.floor(v).toLocaleString() : '$' + (v / 1350).toLocaleString(undefined, { maximumFractionDigits: 1 });
+        }
+
+        function recordSnapshot(specificDate) {
+            let totalAsset = 0;
+            let totalLiability = 0;
+            state.accounts.forEach(acc => {
+                if(acc.type === '대출') totalLiability += acc.balance;
+                else totalAsset += acc.balance;
+            });
+            let netBalance = totalAsset - totalLiability;
+            let dateStr = getISODate(specificDate);
+            
+            let existingIdx = state.snapshots.findIndex(s => s.date === dateStr);
+            if (existingIdx !== -1) {
+                state.snapshots[existingIdx].balance = netBalance;
+            } else {
+                state.snapshots.push({ date: dateStr, balance: netBalance });
+            }
+            state.snapshots.sort((a, b) => a.date.localeCompare(b.date));
+            if (state.snapshots.length > 1000) state.snapshots.shift();
+        }
+
+        function setChartPeriod(period, btn) {
+            state.chartPeriod = period;
+            if(btn) {
+                btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            }
+            render();
+        }
+
+        function toggleFilter(val, btn) {
+            if (val === 'all') { state.filters = new Set(['all']); } else {
+                state.filters.delete('all');
+                if (state.filters.has(val)) { state.filters.delete(val); } else { state.filters.add(val); }
+                if (state.filters.size === 0) state.filters.add('all');
+            }
+            document.querySelectorAll('#consolidated-filters .filter-chip').forEach(chip => {
+                chip.classList.toggle('active', state.filters.has(chip.getAttribute('data-val')));
+            });
+            render();
+        }
+
+        function switchView(view, btn) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.getElementById('view-' + view).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            if(btn) btn.classList.add('active');
+            document.querySelector('.container').scrollTo({ top: 0 });
+            state.viewingDashboard = (view === 'dashboard');
+            if(view === 'history') setHistoryMode('logs');
+            render();
+        }
+
+        function setHistoryMode(mode) {
+            document.getElementById('history-logs-container').style.display = mode === 'logs' ? 'block' : 'none';
+            document.getElementById('history-snapshots-container').style.display = mode === 'snapshots' ? 'block' : 'none';
+            document.getElementById('btn-hist-logs').classList.toggle('active', mode === 'logs');
+            document.getElementById('btn-hist-snapshots').classList.toggle('active', mode === 'snapshots');
+        }
+
+        function setCurrency(c) { state.currency = c; document.querySelectorAll('.currency-toggle .toggle-btn').forEach(b => b.classList.toggle('active', b.innerText === c)); render(); }
+        
+        async function setChartIndex(idx) { 
+            state.chartIndex = idx;
+            await syncChartIndex();
+        }
+
+        function openModal(type) {
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.querySelectorAll('.modal-content').forEach(m => m.style.display = 'none');
+            document.getElementById('modal-' + type).style.display = 'block';
+            if(type === 'addLog') {
+                document.getElementById('log-date').value = getISODate();
+            } else if (type === 'editAccountBalance') {
+                const acc = state.accounts.find(a => a.id === state.currentDetailId);
+                document.getElementById('edit-acc-balance-input').value = acc.balance;
+            } else if (type === 'addSnapshot') {
+                document.getElementById('snapshot-date-input').value = getISODate();
+                document.getElementById('snapshot-balance-input').value = '';
+            }
+        }
+        function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+        
+        function addAccount() {
+            const name = document.getElementById('add-acc-name').value;
+            const bal = parseFloat(document.getElementById('add-acc-balance').value) || 0;
+            if(!name) return;
+            state.accounts.push({ id: Date.now(), name, balance: bal, principal: bal, type: document.getElementById('add-acc-type').value, strategy: document.getElementById('add-acc-strategy').value, lastUpdated: getISODate() });
+            recordSnapshot(); render(); closeModal();
+        }
+        
+        function saveAccountBalanceEdit() {
+            const acc = state.accounts.find(a => a.id === state.currentDetailId);
+            acc.balance = parseFloat(document.getElementById('edit-acc-balance-input').value) || 0;
+            acc.lastUpdated = getISODate();
+            recordSnapshot(); render(); closeModal();
+        }
+
+        function deleteAccount(id) {
+            state.accounts = state.accounts.filter(a => a.id !== id);
+            switchView('dashboard');
+            render(); closeModal();
+        }
+
+        function openQuickLogDetail(type) {
+            state.currentEditId = state.currentDetailId;
+            openQuickLog(type);
+        }
+
+        function openQuickLog(type) {
+            const amountStr = prompt('금액을 입력하세요:');
+            if(!amountStr || isNaN(amountStr)) return;
+            const amount = parseFloat(amountStr);
+            const dateStr = prompt('날짜를 입력하세요 (예: 2026-04-23)', getISODate());
+            if(!dateStr) return;
+            
+            const acc = state.accounts.find(a => a.id === state.currentEditId);
+            if(type === 'deposit') {
+                acc.balance += amount;
+                acc.principal += amount;
+            } else {
+                acc.balance -= amount;
+                acc.principal -= amount;
+            }
+            state.logs.push({ accId: acc.id, type, amount: amount, date: dateStr });
+            recordSnapshot(dateStr); render(); closeModal();
+        }
+
+        function deleteLog(idx) {
+            if(confirm('이 거래 내역을 삭제하시겠습니까?')) {
+                state.logs.splice(idx, 1);
+                render();
+            }
+        }
+
+        function deleteSnapshot(idx) {
+            if(confirm('이 자산 기록을 삭제하시겠습니까? 차트 데이터가 손실될 수 있습니다.')) {
+                state.snapshots.splice(idx, 1);
+                render();
+            }
+        }
+
+        function addManualSnapshot() {
+            const dateStr = document.getElementById('snapshot-date-input').value;
+            const balance = parseFloat(document.getElementById('snapshot-balance-input').value) || 0;
+            if(!dateStr) return;
+            
+            let existingIdx = state.snapshots.findIndex(s => s.date === dateStr);
+            if (existingIdx !== -1) {
+                state.snapshots[existingIdx].balance = balance;
+            } else {
+                state.snapshots.push({ date: dateStr, balance: balance });
+            }
+            state.snapshots.sort((a, b) => a.date.localeCompare(b.date));
+            render(); closeModal();
+        }
+
+        function submitQuickLog() {
+            const accId = parseInt(document.getElementById('log-acc-select').value);
+            const type = document.getElementById('log-type').value;
+            const amount = parseFloat(document.getElementById('log-amount').value) || 0;
+            const logDate = document.getElementById('log-date').value || getISODate();
+            const acc = state.accounts.find(a => a.id === accId);
+            if(type === 'deposit') {
+                acc.balance += amount;
+                acc.principal += amount;
+            } else {
+                acc.balance -= amount;
+                acc.principal -= amount;
+            }
+            state.logs.push({ accId, type, amount, date: logDate });
+            recordSnapshot(logDate); render(); closeModal();
+        }
+
+        function resetData() { if(confirm('초기화하시겠습니까?')) { localStorage.clear(); location.reload(); } }
+        
+        document.addEventListener('DOMContentLoaded', () => { 
+            let needsSave = false;
+            state.accounts.forEach(acc => {
+                if(typeof acc.principal === 'undefined') {
+                    acc.principal = acc.balance;
+                    needsSave = true;
+                }
+            });
+
+            const migrateDate = (dStr) => {
+                const d = new Date(dStr);
+                if(isNaN(d.getTime())) return dStr;
+                return getISODate(d);
+            };
+            state.logs.forEach(l => {
+                if(l.date && (l.date.includes('/') || l.date.includes('. '))) {
+                    l.date = migrateDate(l.date);
+                    needsSave = true;
+                }
+            });
+            state.snapshots.forEach(s => {
+                if(s.date && (s.date.includes('/') || s.date.includes('. '))) {
+                    s.date = migrateDate(s.date);
+                    needsSave = true;
+                }
+            });
+            if(needsSave) {
+                localStorage.setItem('agents_accounts', JSON.stringify(state.accounts));
+                localStorage.setItem('agents_logs', JSON.stringify(state.logs));
+                localStorage.setItem('agents_snapshots', JSON.stringify(state.snapshots));
+            }
+
+            initCharts(); 
+            if (state.snapshots.length === 0) recordSnapshot();
+            state.viewingDashboard = true;
+            render(); 
+        });
+    </script>
+</body>
+</html>
