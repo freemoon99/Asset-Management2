@@ -337,7 +337,7 @@
         .settings-list { display: flex; flex-direction: column; gap: 10px; }
         .file-input { display: none; }
 
-        .form-grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-grid-two { display: grid; grid-template-columns: 1fr; gap: 0; }
         .entry-hint {
             color: var(--text-secondary);
             background: rgba(56, 189, 248, 0.08);
@@ -378,7 +378,7 @@
             </header>
 
             <div class="summary-grid">
-                <div class="metric"><span>투입 원금</span><strong id="principal-display">₩0</strong></div>
+                <div class="metric"><span>내 돈 원금</span><strong id="principal-display">₩0</strong></div>
                 <div class="metric"><span>자기자본 손익</span><strong id="profit-display">₩0</strong></div>
                 <div class="metric"><span>계좌 수</span><strong id="account-count-display">0개</strong></div>
             </div>
@@ -522,11 +522,12 @@
                 <h3 id="entry-modal-title">기록 추가</h3>
                 <button class="icon-btn" data-close-modal aria-label="닫기"><i data-lucide="x"></i></button>
             </div>
-            <p class="entry-hint">입출금은 원금을 바꾸고, 평가금액 수정은 수익률 계산용 현재가만 바꿉니다.</p>
+            <p class="entry-hint">내 돈 입금은 자기자본 원금에 포함되고, 대출금 투자는 총 투입금에는 포함되지만 내 돈 원금에서는 제외됩니다.</p>
             <div class="form-grid-two">
                 <div class="form-group"><label for="entry-date">날짜</label><input id="entry-date" class="form-control" type="date"></div>
-                <div class="form-group"><label for="entry-type">기록 유형</label><select id="entry-type" class="form-control"><option value="deposit">입금 / 대출 증가</option><option value="withdrawal">출금 / 대출 상환</option><option value="valuation">평가금액 수정</option></select></div>
+                <div class="form-group"><label for="entry-type">기록 유형</label><select id="entry-type" class="form-control"><option value="deposit">내 돈 입금</option><option value="loan_deposit">대출금 투자</option><option value="withdrawal">출금 / 대출 상환</option><option value="valuation">평가금액 수정</option></select></div>
             </div>
+            <div class="form-group" id="entry-loan-group" style="display:none;"><label for="entry-loan-account">연결할 대출 계좌</label><select id="entry-loan-account" class="form-control"></select></div>
             <div class="form-group"><label for="entry-account">대상 계좌</label><select id="entry-account" class="form-control"></select></div>
             <div class="form-group"><label for="entry-amount">금액</label><input id="entry-amount" class="form-control" type="text" inputmode="decimal" placeholder="0"></div>
             <div class="form-group"><label for="entry-memo">메모</label><textarea id="entry-memo" class="form-control" placeholder="선택 사항"></textarea></div>
@@ -701,10 +702,22 @@
             return `${sign}₩${Math.floor(absolute).toLocaleString()}`;
         }
 
-        function accountPrincipal(accountId) {
+        function accountPrincipal(accountId, includeBorrowed = false) {
             return state.transactions
                 .filter((item) => item.accountId === accountId)
-                .reduce((sum, item) => sum + (item.type === 'deposit' ? item.amount : -item.amount), 0);
+                .reduce((sum, item) => {
+                    if (item.type === 'deposit' || item.type === 'loan_deposit') {
+                        return sum + (item.funding === 'loan' && !includeBorrowed ? 0 : item.amount);
+                    }
+                    if (item.type === 'withdrawal') return sum - item.amount;
+                    return sum;
+                }, 0);
+        }
+
+        function accountBorrowedPrincipal(accountId) {
+            return state.transactions
+                .filter((item) => item.accountId === accountId && item.funding === 'loan')
+                .reduce((sum, item) => sum + (item.type === 'withdrawal' ? -item.amount : item.amount), 0);
         }
 
         function accountBalanceAt(accountId, dateLimit) {
@@ -721,10 +734,13 @@
         function accountSummary(account) {
             const balance = accountBalanceAt(account.id);
             const rawPrincipal = accountPrincipal(account.id);
+            const borrowedPrincipal = accountBorrowedPrincipal(account.id);
+            const investedPrincipal = accountPrincipal(account.id, true);
             const principal = account.type === '대출' ? 0 : Math.max(0, rawPrincipal);
-            const profit = account.type === '대출' ? 0 : balance - principal;
-            const roi = principal > 0 ? profit / principal * 100 : 0;
-            return { balance, principal, profit, roi };
+            const profit = account.type === '대출' ? 0 : balance - Math.max(0, investedPrincipal);
+            const roiBase = Math.max(0, investedPrincipal);
+            const roi = roiBase > 0 ? profit / roiBase * 100 : 0;
+            return { balance, principal, borrowedPrincipal, investedPrincipal, profit, roi };
         }
 
         function portfolioSummary(accounts = state.accounts) {
@@ -842,6 +858,30 @@
             });
         }
 
+        function transactionLabel(tx, account) {
+            if (tx.type === 'valuation') return '평가금액 수정';
+            if (tx.type === 'loan_draw') return '대출 실행';
+            if (tx.type === 'loan_repay') return '대출 상환';
+            if (tx.type === 'loan_deposit') return '대출금 투자';
+            if (tx.type === 'deposit') return account?.type === '대출' ? '대출 증가' : '내 돈 입금';
+            if (tx.type === 'withdrawal') return account?.type === '대출' ? '대출 상환' : '출금';
+            return '거래';
+        }
+
+        function transactionTone(tx, account) {
+            if (tx.type === 'loan_draw') return 'down';
+            if (tx.type === 'loan_repay') return 'up';
+            if (account?.type === '대출' && tx.type === 'deposit') return 'up';
+            return tx.type === 'withdrawal' ? 'down' : 'up';
+        }
+
+        function transactionSign(tx, account) {
+            if (tx.type === 'loan_draw') return '-';
+            if (tx.type === 'loan_repay') return '+';
+            if (account?.type === '대출' && tx.type === 'deposit') return '+';
+            return tx.type === 'withdrawal' ? '-' : '+';
+        }
+
         async function renderChart() {
             if (!mainChart) return;
             const requestId = ++chartRequestId;
@@ -897,22 +937,38 @@
             if (state.chartPeriod === 'day') { range = '1mo'; interval = '1d'; }
             if (state.chartPeriod === 'year') { range = '5y'; interval = '3mo'; }
 
-            const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(benchmark.symbol)}?range=${range}&interval=${interval}`;
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
-            try {
-                const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error('market request failed');
-                const data = await response.json();
-                const result = data?.chart?.result?.[0];
-                const values = result?.indicators?.adjclose?.[0]?.adjclose || result?.indicators?.quote?.[0]?.close || [];
-                const cleaned = values.filter((value) => Number.isFinite(value));
-                benchmarkCache.set(cacheKey, cleaned);
-                return cleaned;
-            } catch (error) {
-                console.warn('Benchmark fetch failed.', error);
-                benchmarkCache.set(cacheKey, []);
-                return [];
+            const encodedSymbol = encodeURIComponent(benchmark.symbol);
+            const yahooUrls = [
+                `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?range=${range}&interval=${interval}`,
+                `https://query2.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?range=${range}&interval=${interval}`
+            ];
+            const proxyUrls = yahooUrls.flatMap((url) => [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+                `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+            ]);
+
+            for (const proxyUrl of proxyUrls) {
+                try {
+                    const response = await fetch(proxyUrl, { cache: 'no-store' });
+                    if (!response.ok) throw new Error(`market request failed: ${response.status}`);
+                    const text = await response.text();
+                    if (text.trim().startsWith('<')) throw new Error('proxy returned html');
+                    let data = JSON.parse(text);
+                    if (data.contents) data = JSON.parse(data.contents);
+                    const result = data?.chart?.result?.[0];
+                    const values = result?.indicators?.adjclose?.[0]?.adjclose || result?.indicators?.quote?.[0]?.close || [];
+                    const cleaned = values.filter((value) => Number.isFinite(value));
+                    if (cleaned.length) {
+                        benchmarkCache.set(cacheKey, cleaned);
+                        return cleaned;
+                    }
+                } catch (error) {
+                    console.warn('Benchmark fetch attempt failed.', error);
+                }
             }
+
+            benchmarkCache.set(cacheKey, []);
+            return [];
         }
 
         function renderPortfolio() {
@@ -955,11 +1011,11 @@
                     div.className = 'log-item';
                     div.innerHTML = `
                         <div>
-                            <div class="log-title">${escapeHTML(account?.name || '삭제된 계좌')} · ${tx.type === 'deposit' ? '입금' : '출금'}</div>
+                            <div class="log-title">${escapeHTML(account?.name || '삭제된 계좌')} · ${transactionLabel(tx, account)}</div>
                             <div class="log-meta">${escapeHTML(tx.date)}${tx.memo ? ' · ' + escapeHTML(tx.memo) : ''}</div>
                         </div>
                         <div class="row-actions">
-                            <div class="${tx.type === 'deposit' ? 'up' : 'down'}" style="font-weight:700;">${tx.type === 'deposit' ? '+' : '-'}${formatCurrency(tx.amount)}</div>
+                            <div class="${transactionTone(tx, account)}" style="font-weight:700;">${transactionSign(tx, account)}${formatCurrency(tx.amount)}</div>
                             <button class="icon-btn" data-delete-transaction="${tx.id}" aria-label="거래 삭제"><i data-lucide="trash-2" size="16"></i></button>
                         </div>`;
                     logList.appendChild(div);
@@ -1008,7 +1064,13 @@
             $('detail-tags').innerHTML = `<span class="account-tag">${escapeHTML(account.type)}</span><span class="account-tag">${escapeHTML(account.strategy)}</span>`;
             $('detail-name').textContent = account.name;
             $('detail-balance').textContent = formatCurrency(summary.balance);
-            $('detail-principal').textContent = account.type === '대출' ? '대출 계좌는 수익률 계산에서 제외됩니다.' : `투입 원금 ${formatCurrency(summary.principal)}`;
+            if (account.type === '대출') {
+                $('detail-principal').textContent = '대출 계좌는 수익률 계산에서 제외됩니다.';
+            } else if (summary.borrowedPrincipal > 0) {
+                $('detail-principal').textContent = `총 투입 ${formatCurrency(summary.investedPrincipal)} · 내 돈 ${formatCurrency(summary.principal)} · 대출 ${formatCurrency(summary.borrowedPrincipal)}`;
+            } else {
+                $('detail-principal').textContent = `총 투입 ${formatCurrency(summary.investedPrincipal)}`;
+            }
 
             const roiEl = $('detail-roi');
             if (account.type === '대출') {
@@ -1033,8 +1095,8 @@
                 const div = document.createElement('div');
                 div.className = 'log-item';
                 div.innerHTML = `
-                    <div><div class="log-title">${tx.type === 'deposit' ? '입금' : '출금'}</div><div class="log-meta">${escapeHTML(tx.date)}${tx.memo ? ' · ' + escapeHTML(tx.memo) : ''}</div></div>
-                    <div class="${tx.type === 'deposit' ? 'up' : 'down'}" style="font-weight:700;">${tx.type === 'deposit' ? '+' : '-'}${formatCurrency(tx.amount)}</div>`;
+                    <div><div class="log-title">${transactionLabel(tx, account)}</div><div class="log-meta">${escapeHTML(tx.date)}${tx.memo ? ' · ' + escapeHTML(tx.memo) : ''}</div></div>
+                    <div class="${transactionTone(tx, account)}" style="font-weight:700;">${transactionSign(tx, account)}${formatCurrency(tx.amount)}</div>`;
                 detailLogs.appendChild(div);
             });
         }
@@ -1048,6 +1110,10 @@
             $('history-transactions-panel').style.display = state.historyMode === 'transactions' ? 'block' : 'none';
             $('history-valuations-panel').style.display = state.historyMode === 'valuations' ? 'block' : 'none';
             $('entry-account').innerHTML = state.accounts.map((account) => `<option value="${account.id}">${escapeHTML(account.name)}</option>`).join('');
+            $('entry-loan-account').innerHTML = state.accounts
+                .filter((account) => account.type === '대출')
+                .map((account) => `<option value="${account.id}">${escapeHTML(account.name)}</option>`)
+                .join('');
         }
 
         function initCharts() {
@@ -1155,9 +1221,17 @@
             $('entry-date').value = today();
             $('entry-account').value = accountId || state.currentDetailId || state.accounts[0].id;
             $('entry-type').value = preselectType || 'deposit';
+            const loanAccount = state.accounts.find((account) => account.type === '대출');
+            if (loanAccount) $('entry-loan-account').value = loanAccount.id;
             $('entry-amount').value = '';
             $('entry-memo').value = '';
+            syncEntryLoanUi();
             openModal('entry');
+        }
+
+        function syncEntryLoanUi() {
+            const isLoanDeposit = $('entry-type').value === 'loan_deposit';
+            $('entry-loan-group').style.display = isLoanDeposit ? 'block' : 'none';
         }
 
         function saveEntry() {
@@ -1169,9 +1243,43 @@
             const amount = Math.max(0, toNumber($('entry-amount').value));
             const memo = $('entry-memo').value.trim();
             if (amount <= 0) return alert('금액을 입력하세요.');
+            if (type === 'loan_deposit' && account.type === '대출') return alert('대출금 투자는 투자 계좌를 선택하세요.');
 
             if (type === 'valuation') {
                 state.valuations.push({ id: makeId(), accountId, amount, date, memo: memo || '평가금액 수정' });
+            } else if (type === 'loan_deposit') {
+                const loanAccountId = $('entry-loan-account').value;
+                const loanAccount = state.accounts.find((item) => item.id === loanAccountId && item.type === '대출');
+                if (!loanAccount) return alert('연결할 대출 계좌를 먼저 추가하세요.');
+                const currentBalance = accountBalanceAt(accountId);
+                const nextBalance = Math.max(0, currentBalance + amount);
+                const currentLoanBalance = accountBalanceAt(loanAccountId);
+                const nextLoanBalance = Math.max(0, currentLoanBalance + amount);
+                const txId = makeId();
+                const loanTxId = makeId();
+                state.transactions.push({
+                    id: txId,
+                    accountId,
+                    type: 'loan_deposit',
+                    amount,
+                    date,
+                    memo: memo || `${loanAccount.name}에서 대출금 투자`,
+                    funding: 'loan',
+                    linkedLoanAccountId: loanAccountId,
+                    linkedTransactionId: loanTxId
+                });
+                state.transactions.push({
+                    id: loanTxId,
+                    accountId: loanAccountId,
+                    type: 'loan_draw',
+                    amount,
+                    date,
+                    memo: `${account.name} 투자금으로 대출 실행`,
+                    linkedInvestmentAccountId: accountId,
+                    linkedTransactionId: txId
+                });
+                state.valuations.push({ id: makeId(), accountId, amount: nextBalance, date, memo: '대출금 투자 후 잔액', sourceTransactionId: txId });
+                state.valuations.push({ id: makeId(), accountId: loanAccountId, amount: nextLoanBalance, date, memo: '대출 증가 후 잔액', sourceTransactionId: loanTxId });
             } else {
                 const currentBalance = accountBalanceAt(accountId);
                 const nextBalance = Math.max(0, currentBalance + (type === 'deposit' ? amount : -amount));
@@ -1197,8 +1305,10 @@
 
         function deleteTransaction(id) {
             if (!confirm('이 거래 내역을 삭제할까요? 연결된 잔액 기록도 함께 삭제됩니다.')) return;
-            state.transactions = state.transactions.filter((item) => item.id !== id);
-            state.valuations = state.valuations.filter((item) => item.sourceTransactionId !== id);
+            const target = state.transactions.find((item) => item.id === id);
+            const linkedId = target?.linkedTransactionId;
+            state.transactions = state.transactions.filter((item) => item.id !== id && item.id !== linkedId);
+            state.valuations = state.valuations.filter((item) => item.sourceTransactionId !== id && item.sourceTransactionId !== linkedId);
             render();
         }
 
@@ -1269,6 +1379,7 @@
             document.querySelectorAll('[data-history]').forEach((button) => button.addEventListener('click', () => { state.historyMode = button.dataset.history; render(); }));
             document.querySelectorAll('[data-detail-quick]').forEach((button) => button.addEventListener('click', () => openEntryModal(button.dataset.detailQuick, state.currentDetailId)));
             document.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', closeModal));
+            $('entry-type').addEventListener('change', syncEntryLoanUi);
 
             $('modal-overlay').addEventListener('click', (event) => { if (event.target === $('modal-overlay')) closeModal(); });
             $('add-account-inline').addEventListener('click', () => openAccountModal());
