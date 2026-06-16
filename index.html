@@ -134,13 +134,12 @@
         .toggle-btn.active { color: white; background: var(--accent); box-shadow: 0 8px 20px rgba(14, 165, 233, 0.22); }
 
         .chart-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
+            display: grid;
+            grid-template-columns: 1fr;
             gap: 12px;
             margin-bottom: 14px;
         }
-        .chart-tools { display: grid; gap: 9px; justify-items: end; }
+        .chart-tools { display: grid; gap: 9px; justify-items: stretch; width: 100%; }
         .chart-period-row {
             display: flex;
             align-items: center;
@@ -156,6 +155,8 @@
             flex: 1 1 0;
             min-width: 0;
             text-align: center;
+            white-space: nowrap;
+            line-height: 1;
         }
         .chart-period-row .icon-btn {
             flex: 0 0 40px;
@@ -183,7 +184,8 @@
             min-height: 1.1rem;
             color: var(--text-secondary);
             font-size: 0.72rem;
-            text-align: right;
+            text-align: left;
+            overflow-wrap: anywhere;
         }
         .benchmark-status .up, .benchmark-status .down { font-weight: 700; }
         .chart-range {
@@ -260,11 +262,29 @@
             width: 100%;
         }
         .account-card:active { transform: scale(0.985); }
+        .text-col { min-width: 0; }
         .account-name { font-weight: 700; margin-bottom: 5px; overflow-wrap: anywhere; }
         .tag-row { display: flex; flex-wrap: wrap; gap: 5px; }
         .account-tag { font-size: 0.68rem; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--text-secondary); }
-        .amount-col { text-align: right; flex-shrink: 0; }
-        .amount-col strong { display: block; font-size: 1.04rem; }
+        .amount-col {
+            text-align: right;
+            flex: 0 0 auto;
+            max-width: 48%;
+            min-width: max-content;
+        }
+        .amount-col strong {
+            display: block;
+            font-size: clamp(0.86rem, 3.7vw, 1.04rem);
+            white-space: nowrap;
+            line-height: 1.18;
+        }
+        .money-text {
+            display: inline-block;
+            white-space: nowrap;
+            line-height: 1.18;
+            font-size: clamp(0.76rem, 3.35vw, 0.95rem);
+            font-weight: 700;
+        }
         .up { color: var(--success); }
         .down { color: var(--danger); }
         .muted { color: var(--text-secondary); }
@@ -411,9 +431,20 @@
             border-bottom: 1px solid rgba(255,255,255,0.075);
         }
         .log-item:last-child { border-bottom: 0; }
+        .log-main { min-width: 0; }
         .log-title { font-weight: 700; font-size: 0.92rem; }
         .log-meta { color: var(--text-secondary); font-size: 0.74rem; margin-top: 2px; }
-        .row-actions { display: flex; align-items: center; gap: 10px; text-align: right; }
+        .row-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            text-align: right;
+            flex: 0 0 auto;
+            max-width: 50%;
+            min-width: max-content;
+        }
+        .row-actions .icon-btn { flex: 0 0 34px; }
         .empty-state { color: var(--text-secondary); text-align: center; padding: 34px 16px; }
         .help-text { color: var(--text-secondary); font-size: 0.8rem; margin-top: -8px; margin-bottom: 18px; }
 
@@ -451,7 +482,6 @@
             .metric { padding: 10px 9px; }
             .header { flex-direction: column; }
             .header-actions { align-self: flex-start; }
-            .chart-head { flex-direction: column; }
             .chart-tools { width: 100%; justify-items: stretch; }
             .chart-period-row { justify-content: stretch; }
             .benchmark-select { width: 100%; }
@@ -1023,7 +1053,7 @@
                 const roiText = isLoan ? '대출 잔액' : `${summary.profit >= 0 ? '+' : ''}${summary.roi.toFixed(2)}%`;
                 const roiClass = isLoan ? 'down' : summary.profit >= 0 ? 'up' : 'down';
                 button.innerHTML = `
-                    <div>
+                    <div class="text-col">
                         <div class="account-name">${escapeHTML(account.name)}</div>
                         <div class="tag-row"><span class="account-tag">${escapeHTML(account.type)}</span><span class="account-tag">${escapeHTML(account.strategy)}</span></div>
                     </div>
@@ -1196,7 +1226,7 @@
             Object.entries(strategies).forEach(([name, amount]) => {
                 const div = document.createElement('div');
                 div.className = 'account-card';
-                div.innerHTML = `<div><div class="account-name">${escapeHTML(name)}</div><div class="log-meta">투자 성향별 평가금액</div></div><div class="amount-col"><strong>${formatCurrency(amount)}</strong></div>`;
+                div.innerHTML = `<div class="text-col"><div class="account-name">${escapeHTML(name)}</div><div class="log-meta">투자 성향별 평가금액</div></div><div class="amount-col"><strong>${formatCurrency(amount)}</strong></div>`;
                 stats.appendChild(div);
             });
             if (!Object.keys(strategies).length) stats.innerHTML = '<div class="empty-state">분석할 자산이 없습니다.</div>';
@@ -1213,12 +1243,12 @@
                     const div = document.createElement('div');
                     div.className = 'log-item';
                     div.innerHTML = `
-                        <div>
+                        <div class="log-main">
                             <div class="log-title">${escapeHTML(account?.name || '삭제된 계좌')} · ${transactionLabel(tx, account)}</div>
                             <div class="log-meta">${escapeHTML(tx.date)}${tx.memo ? ' · ' + escapeHTML(tx.memo) : ''}</div>
                         </div>
                         <div class="row-actions">
-                            <div class="${transactionTone(tx, account)}" style="font-weight:700;">${transactionSign(tx, account)}${formatCurrency(tx.amount)}</div>
+                            <div class="${transactionTone(tx, account)} money-text">${transactionSign(tx, account)}${formatCurrency(tx.amount)}</div>
                             <button class="icon-btn" data-delete-transaction="${tx.id}" aria-label="거래 삭제"><i data-lucide="trash-2" size="16"></i></button>
                         </div>`;
                     logList.appendChild(div);
@@ -1242,12 +1272,12 @@
                     const title = row.rowType === 'snapshot' ? '수동 순자산 보정' : `${account?.name || '삭제된 계좌'} 평가금액 보정`;
                     const deleteAttr = row.rowType === 'snapshot' ? `data-delete-snapshot="${row.id}"` : `data-delete-valuation="${row.id}"`;
                     div.innerHTML = `
-                        <div>
+                        <div class="log-main">
                             <div class="log-title">${escapeHTML(title)}</div>
                             <div class="log-meta">${escapeHTML(row.date)}${row.memo ? ' · ' + escapeHTML(row.memo) : ''}</div>
                         </div>
                         <div class="row-actions">
-                            <div style="font-weight:700;">${formatCurrency(row.amount)}</div>
+                            <div class="money-text">${formatCurrency(row.amount)}</div>
                             <button class="icon-btn" ${deleteAttr} aria-label="기록 삭제"><i data-lucide="trash-2" size="16"></i></button>
                         </div>`;
                     valuationList.appendChild(div);
@@ -1298,8 +1328,8 @@
                 const div = document.createElement('div');
                 div.className = 'log-item';
                 div.innerHTML = `
-                    <div><div class="log-title">${transactionLabel(tx, account)}</div><div class="log-meta">${escapeHTML(tx.date)}${tx.memo ? ' · ' + escapeHTML(tx.memo) : ''}</div></div>
-                    <div class="${transactionTone(tx, account)}" style="font-weight:700;">${transactionSign(tx, account)}${formatCurrency(tx.amount)}</div>`;
+                    <div class="log-main"><div class="log-title">${transactionLabel(tx, account)}</div><div class="log-meta">${escapeHTML(tx.date)}${tx.memo ? ' · ' + escapeHTML(tx.memo) : ''}</div></div>
+                    <div class="${transactionTone(tx, account)} money-text">${transactionSign(tx, account)}${formatCurrency(tx.amount)}</div>`;
                 detailLogs.appendChild(div);
             });
         }
