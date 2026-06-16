@@ -508,7 +508,7 @@
             </header>
 
             <div class="summary-grid">
-                <div class="metric"><span>내 돈 원금</span><strong id="principal-display">₩0</strong></div>
+                <div class="metric"><span>원금</span><strong id="principal-display">₩0</strong></div>
                 <div class="metric"><span>자기자본 손익</span><strong id="profit-display">₩0</strong></div>
                 <div class="metric"><span>계좌 수</span><strong id="account-count-display">0개</strong></div>
             </div>
@@ -669,7 +669,7 @@
                 <h3 id="entry-modal-title">기록 추가</h3>
                 <button class="icon-btn" data-close-modal aria-label="닫기"><i data-lucide="x"></i></button>
             </div>
-            <p class="entry-hint">내 돈 입금은 자기자본 원금에 포함되고, 대출금 투자는 총 투입금에는 포함되지만 내 돈 원금에서는 제외됩니다.</p>
+            <p class="entry-hint">내 돈 입금은 원금에 포함되고, 대출금 투자는 총 투입금에는 포함되지만 원금에서는 제외됩니다.</p>
             <div class="form-grid-two">
                 <div class="form-group"><label for="entry-date">날짜</label><input id="entry-date" class="form-control" type="date"></div>
                 <div class="form-group"><label for="entry-type">기록 유형</label><select id="entry-type" class="form-control"><option value="deposit">내 돈 입금</option><option value="loan_deposit">대출금 투자</option><option value="transfer">계좌 간 이체</option><option value="withdrawal">출금 / 대출 상환</option><option value="valuation">평가금액 수정</option></select></div>
@@ -1300,7 +1300,7 @@
             if (account.type === '대출') {
                 $('detail-principal').textContent = '대출 계좌는 수익률 계산에서 제외됩니다.';
             } else if (summary.borrowedPrincipal > 0) {
-                $('detail-principal').textContent = `총 투입 ${formatCurrency(summary.investedPrincipal)} · 내 돈 ${formatCurrency(summary.principal)} · 대출 ${formatCurrency(summary.borrowedPrincipal)}`;
+                $('detail-principal').textContent = `총 투입 ${formatCurrency(summary.investedPrincipal)} · 원금 ${formatCurrency(summary.principal)} · 대출 ${formatCurrency(summary.borrowedPrincipal)}`;
             } else {
                 $('detail-principal').textContent = `총 투입 ${formatCurrency(summary.investedPrincipal)}`;
             }
@@ -1522,7 +1522,7 @@
             ctx.font = '700 42px Outfit, system-ui, sans-serif';
             ctx.fillText(`${positive ? '+' : ''}${formatWon(totals.profit)} (${positive ? '+' : ''}${totals.roi.toFixed(2)}%)`, 112, 560);
 
-            drawMetric(ctx, '내 돈 원금', formatWon(totals.principal), 112, 650, 260);
+            drawMetric(ctx, '원금', formatWon(totals.principal), 112, 650, 260);
             drawMetric(ctx, '평가 손익', formatWon(totals.profit), 410, 650, 260, positive ? '#4ade80' : '#ff6b6b');
             drawMetric(ctx, '수익률', `${positive ? '+' : ''}${totals.roi.toFixed(2)}%`, 708, 650, 260, positive ? '#4ade80' : '#ff6b6b');
 
