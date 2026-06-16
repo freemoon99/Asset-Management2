@@ -140,6 +140,28 @@
             margin-bottom: 14px;
         }
         .chart-tools { display: grid; gap: 9px; justify-items: end; }
+        .chart-period-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            justify-content: flex-end;
+        }
+        .chart-period-row .segmented {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        .chart-period-row .toggle-btn {
+            flex: 1 1 0;
+            min-width: 0;
+            text-align: center;
+        }
+        .chart-period-row .icon-btn {
+            flex: 0 0 40px;
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
+        }
         .benchmark-select {
             min-width: 118px;
             color: white;
@@ -430,6 +452,7 @@
             .header-actions { align-self: flex-start; }
             .chart-head { flex-direction: column; }
             .chart-tools { width: 100%; justify-items: stretch; }
+            .chart-period-row { justify-content: stretch; }
             .benchmark-select { width: 100%; }
         }
     </style>
@@ -466,11 +489,13 @@
                         <div id="benchmark-status" class="benchmark-status" style="text-align:left; margin-top: 4px;"></div>
                     </div>
                     <div class="chart-tools">
-                        <div class="segmented">
-                            <button class="toggle-btn" data-period="day">일별</button>
-                            <button class="toggle-btn active" data-period="month">월별</button>
-                            <button class="toggle-btn" data-period="year">연별</button>
-                            <button class="toggle-btn" id="chart-range-toggle">기간</button>
+                        <div class="chart-period-row">
+                            <div class="segmented">
+                                <button class="toggle-btn" data-period="day">일별</button>
+                                <button class="toggle-btn active" data-period="month">월별</button>
+                                <button class="toggle-btn" data-period="year">연별</button>
+                            </div>
+                            <button class="icon-btn" id="chart-range-toggle" aria-label="조회 기간 설정"><i data-lucide="calendar-range" size="18"></i></button>
                         </div>
                         <select id="benchmark-select" class="benchmark-select" aria-label="시장 비교 지수">
                             <option value="none">시장 비교 없음</option>
@@ -1956,5 +1981,3 @@
     </script>
 </body>
 </html>
-
-
