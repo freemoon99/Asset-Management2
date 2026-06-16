@@ -1371,13 +1371,7 @@
             const ctx = canvas.getContext('2d');
             const summary = accountSummary(account);
             const asOf = latestAccountDate(account.id);
-            const sixMonthDate = addMonths(asOf, -6);
-            const sixMonthStart = accountBalanceAt(account.id, sixMonthDate);
-            const sixMonthChange = summary.balance - sixMonthStart;
-            const hasSixMonthBase = sixMonthStart > 0;
-            const sixMonthRate = hasSixMonthBase ? sixMonthChange / sixMonthStart * 100 : 0;
             const positive = summary.profit >= 0;
-            const changePositive = sixMonthChange >= 0;
 
             const bg = ctx.createLinearGradient(0, 0, 1080, 1350);
             bg.addColorStop(0, '#071018');
@@ -1404,7 +1398,7 @@
             tagX += drawPill(ctx, account.type, tagX, 232) + 14;
             drawPill(ctx, account.strategy, tagX, 232);
 
-            drawRoundRect(ctx, 64, 326, 952, 778, 44);
+            drawRoundRect(ctx, 64, 326, 952, 610, 44);
             ctx.fillStyle = 'rgba(24,24,29,0.86)';
             ctx.fill();
             ctx.strokeStyle = 'rgba(255,255,255,0.10)';
@@ -1422,36 +1416,23 @@
             ctx.font = '700 42px Outfit, system-ui, sans-serif';
             ctx.fillText(`${positive ? '+' : ''}${formatWon(summary.profit)} (${positive ? '+' : ''}${summary.roi.toFixed(2)}%)`, 112, 560);
 
-            drawMetric(ctx, '투입 원금', formatWon(summary.investedPrincipal), 112, 640, 408);
-            drawMetric(ctx, '평가 손익', formatWon(summary.profit), 560, 640, 408, positive ? '#4ade80' : '#ff6b6b');
-
-            ctx.fillStyle = '#a1a1aa';
-            ctx.font = '600 30px Outfit, system-ui, sans-serif';
-            ctx.fillText('최근 6개월 변화', 112, 875);
-            ctx.fillStyle = changePositive ? '#4ade80' : '#ff6b6b';
-            ctx.font = '700 52px Outfit, system-ui, sans-serif';
-            const changeText = hasSixMonthBase
-                ? `${changePositive ? '+' : ''}${formatWon(sixMonthChange)} (${changePositive ? '+' : ''}${sixMonthRate.toFixed(2)}%)`
-                : `${formatWon(summary.balance)} · 기준 데이터 없음`;
-            ctx.fillText(changeText, 112, 942);
-
-            ctx.fillStyle = '#71717a';
-            ctx.font = '500 26px Outfit, system-ui, sans-serif';
-            ctx.fillText(`기준 구간: ${sixMonthDate} ~ ${asOf}`, 112, 996);
+            drawMetric(ctx, '투입 원금', formatWon(summary.investedPrincipal), 112, 650, 260);
+            drawMetric(ctx, '평가 손익', formatWon(summary.profit), 410, 650, 260, positive ? '#4ade80' : '#ff6b6b');
+            drawMetric(ctx, '수익률', `${positive ? '+' : ''}${summary.roi.toFixed(2)}%`, 708, 650, 260, positive ? '#4ade80' : '#ff6b6b');
 
             ctx.strokeStyle = 'rgba(255,255,255,0.08)';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(112, 1038);
-            ctx.lineTo(968, 1038);
+            ctx.moveTo(112, 1000);
+            ctx.lineTo(968, 1000);
             ctx.stroke();
 
             ctx.fillStyle = '#d4d4d8';
             ctx.font = '600 30px Outfit, system-ui, sans-serif';
-            ctx.fillText('ZenWealth', 112, 1180);
+            ctx.fillText('ZenWealth', 112, 1120);
             ctx.fillStyle = '#71717a';
             ctx.font = '500 24px Outfit, system-ui, sans-serif';
-            ctx.fillText('개인 투자 기록 · 원금/성과 기준', 112, 1220);
+            ctx.fillText('개인 투자 기록 · 원금/성과 기준', 112, 1160);
 
             return canvas;
         }
@@ -1468,13 +1449,7 @@
             const ctx = canvas.getContext('2d');
             const totals = portfolioSummary(state.accounts);
             const asOf = latestPortfolioDate();
-            const sixMonthDate = addMonths(asOf, -6);
-            const sixMonthStart = netWorthAt(sixMonthDate);
-            const sixMonthChange = totals.net - sixMonthStart;
-            const hasSixMonthBase = sixMonthStart > 0;
-            const sixMonthRate = hasSixMonthBase ? sixMonthChange / sixMonthStart * 100 : 0;
             const positive = totals.profit >= 0;
-            const changePositive = sixMonthChange >= 0;
 
             const bg = ctx.createLinearGradient(0, 0, 1080, 1350);
             bg.addColorStop(0, '#071018');
@@ -1499,7 +1474,7 @@
 
             drawPill(ctx, `${state.accounts.length}개 계좌`, 78, 232);
 
-            drawRoundRect(ctx, 64, 326, 952, 778, 44);
+            drawRoundRect(ctx, 64, 326, 952, 610, 44);
             ctx.fillStyle = 'rgba(24,24,29,0.86)';
             ctx.fill();
             ctx.strokeStyle = 'rgba(255,255,255,0.10)';
@@ -1517,38 +1492,23 @@
             ctx.font = '700 42px Outfit, system-ui, sans-serif';
             ctx.fillText(`${positive ? '+' : ''}${formatWon(totals.profit)} (${positive ? '+' : ''}${totals.roi.toFixed(2)}%)`, 112, 560);
 
-            const investmentAccountCount = state.accounts.filter((account) => account.type !== '대출').length;
-            drawMetric(ctx, '총 자산', formatWon(totals.gross), 112, 640, 260);
-            drawMetric(ctx, '내 돈 원금', formatWon(totals.principal), 410, 640, 260);
-            drawMetric(ctx, '투자 계좌', `${investmentAccountCount}개`, 708, 640, 260);
-
-            ctx.fillStyle = '#a1a1aa';
-            ctx.font = '600 30px Outfit, system-ui, sans-serif';
-            ctx.fillText('최근 6개월 순자산 변화', 112, 875);
-            ctx.fillStyle = changePositive ? '#4ade80' : '#ff6b6b';
-            ctx.font = '700 52px Outfit, system-ui, sans-serif';
-            const changeText = hasSixMonthBase
-                ? `${changePositive ? '+' : ''}${formatWon(sixMonthChange)} (${changePositive ? '+' : ''}${sixMonthRate.toFixed(2)}%)`
-                : `${formatWon(totals.net)} · 기준 데이터 없음`;
-            ctx.fillText(changeText, 112, 942);
-
-            ctx.fillStyle = '#71717a';
-            ctx.font = '500 26px Outfit, system-ui, sans-serif';
-            ctx.fillText(`기준 구간: ${sixMonthDate} ~ ${asOf}`, 112, 996);
+            drawMetric(ctx, '내 돈 원금', formatWon(totals.principal), 112, 650, 260);
+            drawMetric(ctx, '평가 손익', formatWon(totals.profit), 410, 650, 260, positive ? '#4ade80' : '#ff6b6b');
+            drawMetric(ctx, '수익률', `${positive ? '+' : ''}${totals.roi.toFixed(2)}%`, 708, 650, 260, positive ? '#4ade80' : '#ff6b6b');
 
             ctx.strokeStyle = 'rgba(255,255,255,0.08)';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(112, 1038);
-            ctx.lineTo(968, 1038);
+            ctx.moveTo(112, 1000);
+            ctx.lineTo(968, 1000);
             ctx.stroke();
 
             ctx.fillStyle = '#d4d4d8';
             ctx.font = '600 30px Outfit, system-ui, sans-serif';
-            ctx.fillText('ZenWealth', 112, 1180);
+            ctx.fillText('ZenWealth', 112, 1120);
             ctx.fillStyle = '#71717a';
             ctx.font = '500 24px Outfit, system-ui, sans-serif';
-            ctx.fillText('개인 투자 기록 · 순자산/성과 기준', 112, 1220);
+            ctx.fillText('개인 투자 기록 · 순자산/성과 기준', 112, 1160);
 
             return canvas;
         }
